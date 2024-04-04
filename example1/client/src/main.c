@@ -21,6 +21,16 @@
 
 int main(int argc, char const *argv[])
 {
+    // check the number of arguments
+    if (argc != 2)
+    {
+        printf("Usage: %s <string>\n", argv[0]);
+        exit(1);
+    }
+
+    // get the string to send
+    char* string = (char*)argv[1];
+
     // pointer to shared memory
     char* output_mem;
     char* input_mem;
@@ -38,7 +48,7 @@ int main(int argc, char const *argv[])
     input_mem = shmat(input_shmid, NULL, 0);
 
     // copy string to shared memory
-    strcpy(output_mem, "Hello World!");
+    strcpy(output_mem, string);
 
     int response_received = 0;
     while (!response_received)
