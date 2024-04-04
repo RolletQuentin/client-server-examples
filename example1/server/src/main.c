@@ -11,6 +11,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <sys/types.h>
 #include <sys/ipc.h>
 #include <string.h>
@@ -21,6 +22,13 @@
 
 #define INPUT_KEY 217 // SHM key
 #define OUTPUT_KEY 218 // SHM key
+
+// structure to send data to the server
+typedef struct
+{
+    int pid;
+    char string[1024];
+} Data;
 
 // pointer to shared memory
 char* input_mem;
@@ -70,6 +78,13 @@ int main(int argc, char const *argv[])
 {
     printf("Server is starting...\n");
 
+    // declare server and client data
+    Data server_data;
+    Data client_data;
+
+    // get the pid of the server
+    server_data.pid = getpid();
+
     // create shared memory
     input_shmid = shmget((key_t)INPUT_KEY, 1024, IPC_CREAT | 0666);
     output_shmid = shmget((key_t)OUTPUT_KEY, 1024, IPC_CREAT | 0666);
@@ -96,20 +111,21 @@ int main(int argc, char const *argv[])
         if (strlen(input_mem) > 0)
         {
             // get the pid of the client
-            int pid = atoi(input_mem);
+            memcpy(&client_data, input_mem, sizeof(Data));
 
             // print message received from client
-            printf("Received message from client %d: %s\n", pid, input_mem);
+            printf("Received message from client %d: %s\n", client_data.pid, client_data.string);
 
             // reverse string
-            reverse_string(input_mem);
+            reverse_string(client_data.string);
+            strcpy(server_data.string, client_data.string);
 
             // send the reversed string to the client
-            printf("Sending reversed message to client %d: %s\n", pid, input_mem);
-            strcpy(output_mem, input_mem);
+            printf("Sending reversed message to client %d: %s\n", server_data.pid, server_data.string);
+            memcpy(output_mem, &server_data, sizeof(Data));
 
             // empty shared memory
-            memset(input_mem, 0, 1024);
+            memset(input_mem, 0, sizeof(Data));
         }
     }
 

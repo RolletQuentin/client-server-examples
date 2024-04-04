@@ -11,6 +11,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <sys/types.h>
 #include <sys/ipc.h>
 #include <string.h>
@@ -18,6 +19,13 @@
 
 #define OUTPUT_KEY 217 // SHM key
 #define INPUT_KEY 218 // SHM key
+
+// structure to send data to the server
+typedef struct
+{
+    int pid;
+    char string[1024];
+} Data;
 
 int main(int argc, char const *argv[])
 {
@@ -28,8 +36,15 @@ int main(int argc, char const *argv[])
         exit(1);
     }
 
+    // declare client data
+    Data client_data;
+    Data server_data;
+
+    // get the pid of the client
+    client_data.pid = getpid();
+
     // get the string to send
-    char* string = (char*)argv[1];
+    strcpy(client_data.string, argv[1]);
 
     // pointer to shared memory
     char* output_mem;
@@ -47,8 +62,8 @@ int main(int argc, char const *argv[])
     output_mem = shmat(output_shmid, NULL, 0);
     input_mem = shmat(input_shmid, NULL, 0);
 
-    // copy string to shared memory
-    strcpy(output_mem, string);
+    // copy data to shared memory
+    memcpy(output_mem, &client_data, sizeof(Data));
 
     int response_received = 0;
     while (!response_received)
@@ -56,11 +71,13 @@ int main(int argc, char const *argv[])
         // check if server has written in shared memory
         if (strlen(input_mem) > 0)
         {
-            printf("Server response: %s\n", input_mem);
+            memcpy(&server_data, input_mem, sizeof(Data));
+
+            printf("Received response from server %d: %s\n", server_data.pid, server_data.string);
             response_received = 1;
 
             // empty shared memory
-            memset(input_mem, 0, strlen(input_mem));
+            memset(input_mem, 0, sizeof(Data));
         }
     }
 
