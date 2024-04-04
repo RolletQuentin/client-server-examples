@@ -19,27 +19,42 @@
 
 #include "reverse.h"
 
-#define KEY 217 // SHM key
+#define INPUT_KEY 217 // SHM key
+#define OUTPUT_KEY 218 // SHM key
 
 // pointer to shared memory
-char* mem;
+char* input_mem;
+char* output_mem;
 
 // id of shared memory
-int shmid;
+int input_shmid;
+int output_shmid;
 
 void stop_signal_handler(int signal) {
 
     printf("\nServer is stopping...\n");
 
     // Detach shared memory
-    if (shmdt(mem) == -1)
+    if (shmdt(input_mem) == -1)
+    {
+        perror("shmdt");
+        exit(1);
+    }
+
+    if (shmdt(output_mem) == -1)
     {
         perror("shmdt");
         exit(1);
     }
 
     // Delete shared memory
-    if (shmctl(shmid, IPC_RMID, NULL) == -1)
+    if (shmctl(input_shmid, IPC_RMID, NULL) == -1)
+    {
+        perror("shmctl");
+        exit(1);
+    }
+
+    if (shmctl(output_shmid, IPC_RMID, NULL) == -1)
     {
         perror("shmctl");
         exit(1);
@@ -56,13 +71,15 @@ int main(int argc, char const *argv[])
     printf("Server is starting...\n");
 
     // create shared memory
-    shmid = shmget((key_t)KEY, 1024, IPC_CREAT | 0666);
+    input_shmid = shmget((key_t)INPUT_KEY, 1024, IPC_CREAT | 0666);
+    output_shmid = shmget((key_t)OUTPUT_KEY, 1024, IPC_CREAT | 0666);
 
     // attach shared memory
-    mem = shmat(shmid, NULL, 0);
+    input_mem = shmat(input_shmid, NULL, 0);
+    output_mem = shmat(output_shmid, NULL, 0);
 
     // check if shared memory is attached
-    if (mem == (char *)-1)
+    if (input_mem == (char *)-1 || output_mem == (char *)-1)
     {
         perror("shmat");
         exit(1);
@@ -71,21 +88,28 @@ int main(int argc, char const *argv[])
     // register signal handler
     signal(SIGINT, stop_signal_handler);
 
-    printf("Server started. Enjoy !\n");
+    printf("Server started. Enjoy !\n\n");
 
     while (1)
     {
         // check if shared memory is empty
-        if (strlen(mem) > 0)
+        if (strlen(input_mem) > 0)
         {
-            // reverse string
-            reverse_string(mem);
+            // get the pid of the client
+            int pid = atoi(input_mem);
 
-            // print reversed string
-            printf("Reversed string: %s\n", mem);
+            // print message received from client
+            printf("Received message from client %d: %s\n", pid, input_mem);
+
+            // reverse string
+            reverse_string(input_mem);
+
+            // send the reversed string to the client
+            printf("Sending reversed message to client %d: %s\n", pid, input_mem);
+            strcpy(output_mem, input_mem);
 
             // empty shared memory
-            memset(mem, 0, 1024);
+            memset(input_mem, 0, 1024);
         }
     }
 

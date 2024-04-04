@@ -16,24 +16,43 @@
 #include <string.h>
 #include <sys/shm.h>
 
-#define KEY 217 // SHM key
+#define OUTPUT_KEY 217 // SHM key
+#define INPUT_KEY 218 // SHM key
 
 int main(int argc, char const *argv[])
 {
     // pointer to shared memory
-    char* mem;
+    char* output_mem;
+    char* input_mem;
 
     // id of shared memory
-    int shmid;
+    int output_shmid;
+    int input_shmid;
 
     // create shared memory
-    shmid = shmget((key_t)KEY, 0, 0);
+    output_shmid = shmget((key_t)OUTPUT_KEY, 0, 0);
+    input_shmid = shmget((key_t)INPUT_KEY, 0, 0);
 
     // attach shared memory
-    mem = shmat(shmid, NULL, 0);
+    output_mem = shmat(output_shmid, NULL, 0);
+    input_mem = shmat(input_shmid, NULL, 0);
 
     // copy string to shared memory
-    strcpy(mem, "Hello World!");
+    strcpy(output_mem, "Hello World!");
+
+    int response_received = 0;
+    while (!response_received)
+    {
+        // check if server has written in shared memory
+        if (strlen(input_mem) > 0)
+        {
+            printf("Server response: %s\n", input_mem);
+            response_received = 1;
+
+            // empty shared memory
+            memset(input_mem, 0, strlen(input_mem));
+        }
+    }
 
     return 0;
 }
