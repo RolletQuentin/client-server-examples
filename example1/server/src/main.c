@@ -15,47 +15,48 @@
 #include <sys/ipc.h>
 #include <string.h>
 #include <sys/shm.h>
+#include <signal.h>
+
+#include "reverse.h"
 
 #define KEY 217 // SHM key
 
-/**
- * @brief Reverse a string
- * 
- * @param str 
- * @return char* 
- */
-char *reverse_string(char *str)
-{
-    int i = 0;
-    int j = 0;
-    char tmp;
+// pointer to shared memory
+char* mem;
 
-    while (str[j] != '\0')
-        j++;
-    j--;
+// id of shared memory
+int shmid;
 
-    while (i < j)
+void stop_signal_handler(int signal) {
+
+    printf("\nServer is stopping...\n");
+
+    // Detach shared memory
+    if (shmdt(mem) == -1)
     {
-        tmp = str[i];
-        str[i] = str[j];
-        str[j] = tmp;
-        i++;
-        j--;
+        perror("shmdt");
+        exit(1);
     }
 
-    return str;
+    // Delete shared memory
+    if (shmctl(shmid, IPC_RMID, NULL) == -1)
+    {
+        perror("shmctl");
+        exit(1);
+    }
+
+    printf("Shared memory deleted\n");
+    printf("Server stopped. See you next time :)\n");
+
+    exit(0);
 }
 
 int main(int argc, char const *argv[])
 {
-    // pointer to shared memory
-    char* mem;
-
-    // id of shared memory
-    int shmid;
+    printf("Server is starting...\n");
 
     // create shared memory
-    shmid = shmget((key_t)KEY, 0, 0);
+    shmid = shmget((key_t)KEY, 1024, IPC_CREAT | 0666);
 
     // attach shared memory
     mem = shmat(shmid, NULL, 0);
@@ -67,13 +68,26 @@ int main(int argc, char const *argv[])
         exit(1);
     }
 
-    printf("Server is running...\n");
+    // register signal handler
+    signal(SIGINT, stop_signal_handler);
 
-    // detach shared memory
-    shmdt(mem);
+    printf("Server started. Enjoy !\n");
 
-    // delete shared memory
-    shmctl(shmid, IPC_RMID, NULL);
+    while (1)
+    {
+        // check if shared memory is empty
+        if (strlen(mem) > 0)
+        {
+            // reverse string
+            reverse_string(mem);
+
+            // print reversed string
+            printf("Reversed string: %s\n", mem);
+
+            // empty shared memory
+            memset(mem, 0, 1024);
+        }
+    }
 
     return 0;
 }

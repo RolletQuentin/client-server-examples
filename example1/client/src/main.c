@@ -27,7 +27,7 @@ int main(int argc, char const *argv[])
     int shmid;
 
     // create shared memory
-    shmid = shmget((key_t)KEY, 1000, IPC_CREAT | 0750);
+    shmid = shmget((key_t)KEY, 0, 0);
 
     // attach shared memory
     mem = shmat(shmid, NULL, 0);
